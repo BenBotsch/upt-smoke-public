@@ -15,7 +15,7 @@ Update this table when the project maintains more than one release line.
 discussions.**
 
 Report them privately through GitHub private vulnerability reporting:
-[Report a vulnerability](https://github.com/OWNER/REPOSITORY/security/advisories/new).
+[Report a vulnerability](https://github.com/BenBotsch/upt-smoke-public/security/advisories/new).
 
 Maintainers must enable private vulnerability reporting in the repository settings
 (**Security > Private vulnerability reporting**); GitHub offers it only for public repositories.

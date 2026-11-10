@@ -89,7 +89,7 @@ changed files from the event file. Locally, download the job list of a run and p
 name and the revision range:
 
 ```text
-gh api --paginate "repos/OWNER/REPOSITORY/actions/runs/RUN_ID/jobs?per_page=100" > jobs.json
+gh api --paginate "repos/BenBotsch/upt-smoke-public/actions/runs/RUN_ID/jobs?per_page=100" > jobs.json
 python -I scripts/ci/evaluate_quality_gates.py --jobs jobs.json --event-name pull_request --range develop..HEAD
 ```
 

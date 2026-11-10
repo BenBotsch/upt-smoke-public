@@ -1,26 +1,6 @@
-# PROJECT_NAME
+# upt-smoke-public
 
-PROJECT_DESCRIPTION
-
-<!-- template-only:start -->
-## Using this template
-
-This repository is a language-agnostic project template. To turn a repository created from it
-into a project:
-
-1. Create the repository from the template on GitHub and give it a description. The script in
-   `scripts/bootstrap/` does this and synchronizes the labels; see its
-   [README](scripts/bootstrap/README.md).
-2. Clone the new repository, install the bootstrap tool from `tools/engineering-bootstrap/` of
-   the clone and open an issue for the initialization.
-3. Run `project-bootstrap init --repo <owner>/<name>` in the clone to review the plan, then again
-   with `--apply --issue <number>`. It deletes the template-only files and this section, replaces
-   the placeholders, writes the license you choose and commits the result on a branch.
-4. Push the branch, open a pull request to `develop`, select a technology profile and fill in the
-   sections below.
-
-The tool's README in `tools/engineering-bootstrap/` describes the options of `init`.
-<!-- template-only:end -->
+Smoke test repository for project-bootstrap
 
 ## Features
 
@@ -80,7 +60,7 @@ Start at [docs/INDEX.md](docs/INDEX.md). Rules for contributors and coding agent
 ## Roadmap
 
 Planning happens in the GitHub Issues and milestones of
-[OWNER/REPOSITORY](https://github.com/OWNER/REPOSITORY/issues).
+[BenBotsch/upt-smoke-public](https://github.com/BenBotsch/upt-smoke-public/issues).
 
 ## Contributing
 
@@ -93,6 +73,4 @@ Do not report vulnerabilities in public issues. Follow [SECURITY.md](SECURITY.md
 
 ## License
 
-The template is licensed under the [MIT License](LICENSE). A project created from the template
-receives this `LICENSE` file as a copy. Each project decides on its own license explicitly: keep
-the MIT License with the project's copyright holder, or replace the file with another license.
+This project is licensed under the [MIT License](LICENSE).

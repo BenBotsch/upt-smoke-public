@@ -4,16 +4,16 @@
 schema_version: "1.0"
 
 project:
-  name: "PROJECT_NAME"
-  description: "PROJECT_DESCRIPTION"
+  name: "upt-smoke-public"
+  description: "Smoke test repository for project-bootstrap"
   status: "planning"
-  visibility: "private"
+  visibility: "public"
   # true only in the template repository; bootstrap sets false in derived projects.
-  is_template: true
+  is_template: false
 
 # Provenance for later upgrades; bootstrap records the template version a project started from.
 template:
-  source: "OWNER/UniversalProjectTemplate"
+  source: "BenBotsch/UniversalProjectTemplate"
   version: "0.1.0"
 
 repository:

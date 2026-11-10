@@ -2,10 +2,10 @@
 
 ## Where to Ask
 
-- **Questions and ideas:** use [GitHub Discussions](https://github.com/OWNER/REPOSITORY/discussions)
+- **Questions and ideas:** use [GitHub Discussions](https://github.com/BenBotsch/upt-smoke-public/discussions)
   if they are enabled for this repository; otherwise open an issue.
 - **Bugs and feature requests:** open an
-  [issue](https://github.com/OWNER/REPOSITORY/issues/new/choose) with the matching issue form.
+  [issue](https://github.com/BenBotsch/upt-smoke-public/issues/new/choose) with the matching issue form.
 - **Security vulnerabilities:** never in public; follow [SECURITY.md](SECURITY.md).
 
 Search existing issues and discussions before you open a new one.

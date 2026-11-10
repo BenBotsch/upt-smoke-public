@@ -1,8 +1,5 @@
 # Issue template chooser configuration.
 #
-# template-only:start
-# OWNER and REPOSITORY are placeholders that "project-bootstrap init" replaces.
-# template-only:end
 # - The security link works only if private vulnerability reporting is enabled for the repository
 #   (Settings > Security > Private vulnerability reporting).
 # - The support link works only if GitHub Discussions are enabled for the repository.
@@ -11,8 +8,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: "Security Vulnerability Report"
-    url: "https://github.com/OWNER/REPOSITORY/security/advisories/new"
+    url: "https://github.com/BenBotsch/upt-smoke-public/security/advisories/new"
     about: "Privately report a suspected security vulnerability. Do not open a public issue."
   - name: "Support"
-    url: "https://github.com/OWNER/REPOSITORY/discussions"
+    url: "https://github.com/BenBotsch/upt-smoke-public/discussions"
     about: "Ask usage questions and discuss ideas."

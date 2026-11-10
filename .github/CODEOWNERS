@@ -1,10 +1,6 @@
 # Code owners are requested automatically as reviewers for matching paths.
 # The last matching pattern wins.
 #
-# template-only:start
-# The template names its maintainer. "project-bootstrap init" replaces this
-# owner in a project created from the template with the project's code owner.
-# template-only:end
 # A code owner needs write access to the repository; an owner without it shows
 # as an error on GitHub.
 #

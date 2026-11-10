@@ -1,18 +1,18 @@
-# Contributing to PROJECT_NAME
+# Contributing to upt-smoke-public
 
 These rules apply to humans and coding agents alike. Agents additionally follow
 [AGENTS.md](AGENTS.md).
 
 ## Prerequisites and Local Setup
 
-- Git and a GitHub account with access to [OWNER/REPOSITORY](https://github.com/OWNER/REPOSITORY).
+- Git and a GitHub account with access to [BenBotsch/upt-smoke-public](https://github.com/BenBotsch/upt-smoke-public).
 - Python 3.10 or later for the repository checks in `scripts/ci/`.
 - The tools required by the technology profile, listed in [README.md](README.md#requirements).
 
 Clone the development branch:
 
 ```text
-git clone --branch develop https://github.com/OWNER/REPOSITORY.git
+git clone --branch develop https://github.com/BenBotsch/upt-smoke-public.git
 ```
 
 Then install the dependencies of the repository checks from the root of the clone:
