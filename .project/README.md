@@ -4,9 +4,9 @@ The files in `.project/` describe the project in machine-readable form. They are
 convention, not native GitHub configuration**: GitHub ignores them. They take effect only through
 the bootstrap tool, the CI validators and the dashboard. A field that no tool reads has no effect.
 
-Every file starts with `schema_version`. The current version is `"1.1"` for `workflow.yml` and
-`"1.0"` for all other files. A change to the structure of a file requires a new schema version
-and a migration note; see [Migrations](#migrations).
+Every file starts with `schema_version`. The current version is `"1.2"` for `bootstrap.yml`,
+`"1.1"` for `workflow.yml`, `quality-gates.yml` and `labels.yml`, and `"1.0"` for `project.yml`. A change to the structure of
+a file requires a new schema version and a migration note; see [Migrations](#migrations).
 
 ## Schemas and Validation
 
@@ -29,6 +29,9 @@ check it applies the label rules of `scripts/ci/check_labels.py` and these cross
 - Every branch named in `workflow.yml` is the default or development branch of `project.yml`, and
   releases come from the default branch.
 - `branch_name_pattern` and `tag_pattern` are valid regular expressions.
+- Every action that `.github/workflows/` and `.github/actions/` use is allowed by
+  `repository_settings.actions` in `bootstrap.yml`, so `configure-repo` cannot stop CI. Actions
+  of verified creators count only if `patterns_allowed` lists them.
 
 Unknown fields are rejected at every level. Project-specific data belongs under a top-level
 `x_extensions` mapping, which every schema allows and template tooling ignores.
@@ -41,7 +44,7 @@ existing one, update `schema_version` in the configuration file and document the
 | File | Content | Read by | Created by | Updated when |
 |---|---|---|---|---|
 | `project.yml` | Identity, template provenance, branches, versioning, technology, quality and agent flags | Bootstrap, validators, dashboard | Bootstrap | Stack, platform or policy changes |
-| `labels.yml` | Label names, colors, descriptions and groups | Label synchronization, issue validation | Template owner | Taxonomy changes |
+| `labels.yml` | Label names, colors, descriptions, aliases and groups | Label synchronization, issue validation | Template owner | Taxonomy changes |
 | `quality-gates.yml` | Required checks and the CI jobs that implement them | Quality-gate job in CI | Template owner | A CI job is added, renamed or removed |
 | `workflow.yml` | Branch model, pull request rules, release approval, issue policy | Pull request and issue validators, bootstrap | Template owner | Branch, review or issue rules change |
 | `bootstrap.yml` | Features to provision, safety defaults, template-only paths, profiles | Bootstrap | Template owner | Provisioning options change |
@@ -71,12 +74,18 @@ automatically with later template versions; upgrades run as reviewed migrations.
 | Field | Allowed values |
 |---|---|
 | Applicability key | `required`, `required_when_applicable`, `required_for_code_changes`, `review_required_for_relevant_changes`; each set to `true` |
-| `workflow` | File name in `.github/workflows/` |
+| `applies_when.events` | GitHub event names, for example `pull_request`, `push` |
+| `applies_when.languages` | Values of `technology.languages` in `project.yml`; `"*"` means any language |
+| `applies_when.changed_paths`, `ignored_paths` | Glob patterns of changed files; `*` also matches `/` |
+| `workflow` | File name in `.github/workflows/`: `ci.yml` or a workflow that `ci.yml` calls |
 | `job` | Job id in that workflow |
 | `status` | `implemented`, `not_implemented` |
+| `flaky_tests[]` | `test` (test id), `issue` (`#<number>`), `reason` |
 
-A required gate passes only if its job finished with `success`. A skipped, missing or
-`not_implemented` job fails the gate; it is never reported as green.
+`applies_when` is mandatory for every kind except `required`; all of its conditions must hold
+for the gate to apply. A gate that applies passes only if its job finished with `success`. A
+skipped, missing or `not_implemented` job fails the gate; it is never reported as green. See the
+[Quality Model](../docs/governance/quality-model.md#enforcement-in-ci).
 
 ### `workflow.yml`
 
@@ -104,6 +113,24 @@ A required gate passes only if its job finished with `success`. A skipped, missi
 | `overwrite_user_changes` | `false` keeps files and settings a project has changed |
 | `template_only_paths` | Paths relative to the repository root that exist only in the template |
 | `optional_profiles` | `python`, `cpp`, `node`, `flutter`, `docker`, `hybrid` |
+| `repository_settings.has_wiki`, `delete_branch_on_merge` | `true`, `false` |
+| `repository_settings.topics` | Optional; up to 20 lowercase topics of letters, digits and `-`. Omit it to leave the topics unmanaged |
+| `repository_settings.actions.allowed_actions` | `all`, `local_only`, `selected`; `selected` requires `github_owned_allowed`, `verified_allowed` and `patterns_allowed` (for example `owner/repo@*`), the other values forbid them |
+| `repository_settings.actions.default_workflow_permissions` | `read`, `write` |
+| `repository_settings.actions.can_approve_pull_request_reviews` | `true`, `false` |
+| `repository_settings.security.*` | `true`, `false` for `dependabot_alerts`, `dependabot_security_updates`, `secret_scanning`, `secret_scanning_push_protection`, `private_vulnerability_reporting` |
+| `protection.mode` | `solo` (no required approval), `team` (one approval, code owner review, stale approvals dismissed) |
+| `protection.required_status_checks` | Check names, for example the CI job name `quality-gate`; each is required only after it has reported once on the branch |
+| `protection.release_tag_pattern` | Optional; release tag pattern without `refs/tags/`, for example `v*`. Omit it to leave tags unprotected |
+
+`project-bootstrap configure-repo` applies `repository_settings`. It takes the branch names and
+the description from `project.yml` and the merge methods from `workflow.yml`, so these values are
+not repeated here. Settings that GitHub does not offer for the repository's plan or visibility are
+reported as skipped.
+
+`project-bootstrap apply-rulesets` applies `protection` as rulesets on the default and the
+development branch of `project.yml` and on the release tags; `bootstrap.configure_rulesets`
+switches it off. See [Branch Protection](../docs/governance/branch-protection.md).
 
 ## Template-only content
 
@@ -132,3 +159,7 @@ only when `is_template` is `false`. `--format json` prints the findings for othe
 | File | From | To | Change | Migration |
 |---|---|---|---|---|
 | `workflow.yml` | `1.0` | `1.1` | Adds the required fields `pull_requests.required_sections` and `pull_requests.automation_authors`, read by the pull request validator | Set `schema_version: "1.1"` and add both fields; the values in this template are the defaults. Until then the validator uses the defaults and `validate_project.py` still accepts `1.0`. |
+| `quality-gates.yml` | `1.0` | `1.1` | Adds `applies_when` per gate, mandatory except for `required` gates, and the required list `flaky_tests` | Set `schema_version: "1.1"`, add `applies_when` to each conditional gate and `flaky_tests: []`. `validate_project.py` still accepts `1.0`, but the quality-gate job rejects it. |
+| `labels.yml` | `1.0` | `1.1` | Adds the optional list `aliases` per label: existing label names that label synchronization renames to the configured name instead of creating a second label, so issues and pull requests keep their label | Set `schema_version: "1.1"` and add `aliases` where an existing label should be renamed. An alias must not equal another label's name or alias. `validate_project.py` still accepts `1.0` without `aliases`. |
+| `bootstrap.yml` | `1.0` | `1.1` | Adds the required section `repository_settings` with wiki, auto-delete of head branches, optional topics, Actions permissions, workflow token and security features, read by `project-bootstrap configure-repo` | Set `schema_version: "1.1"` and copy the `repository_settings` section of this template; adjust `patterns_allowed` to the third-party actions the workflows use. `validate_project.py` still accepts `1.0`, but `configure-repo` rejects it. |
+| `bootstrap.yml` | `1.1` | `1.2` | Adds the required section `protection` with the review mode, the required status checks and the optional release tag pattern, read by `project-bootstrap apply-rulesets` | Set `schema_version: "1.2"` and copy the `protection` section of this template; use `mode: "team"` when more than one maintainer reviews. `validate_project.py` still accepts `1.0` and `1.1`, but `apply-rulesets` rejects them. |

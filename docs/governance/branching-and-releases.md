@@ -66,11 +66,12 @@ in the pull request.
 | Release into `main` | Merge commit | Keeps the commits of `develop` in the history of `main` |
 | Synchronization of `main` into `develop` | Merge commit | `develop` must contain every commit of `main`; a squash would make the branches diverge |
 
-This is a **provisional default** (`pull_requests.merge_strategy` in `workflow.yml`). Before a
-project changes it, record the decision as an ADR in
-[`docs/architecture/adr/`](../architecture/adr/README.md) and update the configuration and this
-section together. The strategy for hotfix pull requests into `main` is not configured yet; decide
-it in the same ADR.
+The strategy is decided in
+[ADR-0004](../architecture/adr/0004-merge-policy.md) and configured in
+`pull_requests.merge_strategy` in `workflow.yml`. Rebase merges are disabled. Before a project
+changes the strategy, record a new ADR in [`docs/architecture/adr/`](../architecture/adr/README.md)
+and update the configuration and this section together. The strategy for hotfix pull requests into
+`main` is not decided yet; until then both squash and merge commits are allowed.
 
 ## Synchronizing `main` into `develop`
 
@@ -151,16 +152,22 @@ A release is approved only if all of these are true:
 |---|---|---|
 | Prevent direct pushes | Yes | Yes |
 | Require a pull request before merge | Yes | Yes |
-| Require CI checks | Yes | Yes |
+| Require the `quality-gate` check | Yes | Yes |
 | Require resolved conversations | Yes | Yes |
 | Prevent force pushes | Yes | Yes |
 | Prevent deletion | Yes | Yes |
 | Require review | Depends on team size | Depends on team size |
 | Require release approval | Yes | Not applicable |
 
+`quality-gate` is the only required status check; it fails when a gate that applies was skipped,
+failed or is not implemented. Do not require individual jobs, because GitHub treats a skipped job
+as passed. See the [Quality Model](quality-model.md#enforcement-in-ci).
+
 Whether these rules can be **enforced** depends on repository visibility and the GitHub plan.
 Branch protection and rulesets are available for public repositories on GitHub Free, but may be
 unavailable for private repositories on the same plan. Where a rule cannot be enforced
 technically, it is an organizational rule that every contributor follows; do not report it as
 enforced. Check the current plan conditions before setting up protection. Review rules for small
-teams are described in the [Review Policy](review-policy.md).
+teams are described in the [Review Policy](review-policy.md). How `project-bootstrap
+apply-rulesets` enforces these rules, and what it reports where it cannot, is described in
+[Branch Protection](branch-protection.md).
