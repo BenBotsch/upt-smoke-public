@@ -136,6 +136,7 @@ def test_bootstrap_schema_1_0_is_still_accepted(project_copy: Path) -> None:
         data["schema_version"] = "1.0"
         del data["repository_settings"]
         del data["protection"]
+        del data["init"]
 
     edit(project_copy, "bootstrap", downgrade)
     assert messages(project_copy) == []
@@ -145,6 +146,16 @@ def test_bootstrap_schema_1_1_is_still_accepted(project_copy: Path) -> None:
     def downgrade(data: dict) -> None:
         data["schema_version"] = "1.1"
         del data["protection"]
+        del data["init"]
+
+    edit(project_copy, "bootstrap", downgrade)
+    assert messages(project_copy) == []
+
+
+def test_bootstrap_schema_1_2_is_still_accepted(project_copy: Path) -> None:
+    def downgrade(data: dict) -> None:
+        data["schema_version"] = "1.2"
+        del data["init"]
 
     edit(project_copy, "bootstrap", downgrade)
     assert messages(project_copy) == []
@@ -154,6 +165,70 @@ def test_protection_is_required_by_bootstrap_schema_1_2(project_copy: Path) -> N
     edit(project_copy, "bootstrap", lambda d: d.pop("protection"))
     assert_single_problem(
         project_copy, "bootstrap.yml", "(root)", "'protection' is a required property"
+    )
+
+
+def test_init_is_required_by_bootstrap_schema_1_3(project_copy: Path) -> None:
+    edit(project_copy, "bootstrap", lambda d: d.pop("init"))
+    assert_single_problem(
+        project_copy, "bootstrap.yml", "(root)", "'init' is a required property"
+    )
+
+
+@pytest.mark.parametrize(
+    ("init", "location"),
+    [
+        ({"license": "MIT License"}, "init.license"),
+        ({"license": "MIT", "code_owner": "@octo"}, "init.code_owner"),
+        ({"license": "MIT", "copyright_holder": "A\nB"}, "init.copyright_holder"),
+        ({"license": "MIT", "year": 2026}, "init"),
+    ],
+)
+def test_invalid_init_values_are_rejected(
+    project_copy: Path, init: dict, location: str
+) -> None:
+    edit(project_copy, "bootstrap", lambda d: d.update(init=init))
+    assert_single_problem(project_copy, "bootstrap.yml", location, "")
+
+
+def test_workflow_schema_1_1_is_still_accepted(project_copy: Path) -> None:
+    def downgrade(data: dict) -> None:
+        data["schema_version"] = "1.1"
+        del data["pull_requests"]["merge_strategy"]["hotfix_into_default_branch"]
+
+    edit(project_copy, "workflow", downgrade)
+    assert messages(project_copy) == []
+
+
+def test_hotfix_merge_method_is_required_by_workflow_schema_1_2(
+    project_copy: Path,
+) -> None:
+    edit(
+        project_copy,
+        "workflow",
+        lambda d: d["pull_requests"]["merge_strategy"].pop(
+            "hotfix_into_default_branch"
+        ),
+    )
+    assert_single_problem(
+        project_copy,
+        "workflow.yml",
+        "pull_requests.merge_strategy",
+        "'hotfix_into_default_branch' is a required property",
+    )
+
+
+def test_hotfix_merge_method_must_be_a_merge_method(project_copy: Path) -> None:
+    edit(
+        project_copy,
+        "workflow",
+        lambda d: d["pull_requests"]["merge_strategy"].update(
+            hotfix_into_default_branch="ff"
+        ),
+    )
+    assert any(
+        "pull_requests.merge_strategy.hotfix_into_default_branch" in problem
+        for problem in messages(project_copy)
     )
 
 
@@ -589,6 +664,7 @@ def test_bootstrap_1_0_skips_the_allow_list_check(project_copy: Path) -> None:
     )
     del bootstrap["repository_settings"]
     del bootstrap["protection"]
+    del bootstrap["init"]
     bootstrap["schema_version"] = "1.0"
     (project_copy / "bootstrap.yml").write_text(
         yaml.safe_dump(bootstrap), encoding="utf-8"
