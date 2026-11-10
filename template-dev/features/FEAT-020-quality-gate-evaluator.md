@@ -3,7 +3,7 @@ id: "FEAT-020"
 title: "Enforce Quality Gates Without False Green Pipelines"
 epic: "EPIC-06"
 phase: 2
-status: "planned"
+status: "implemented"
 priority: "high"
 effort: "m"
 target_repo: "universal-project-template"
@@ -58,13 +58,13 @@ without running them. §21.6: "required build not executed → CI failure".
 
 ## Tasks
 
-- [ ] **T1:** Evaluator with tests.
-- [ ] **T2:** Wire `quality-gate` job into `ci.yml`; document it as the required check.
+- [x] **T1:** Evaluator with tests.
+- [x] **T2:** Wire `quality-gate` job into `ci.yml`; document it as the required check.
 
 ## Acceptance Criteria
 
-- [ ] Required checks cannot silently succeed without executing required work (§17.4).
-- [ ] §21.6 "required build not executed" yields CI failure.
+- [x] Required checks cannot silently succeed without executing required work (§17.4).
+- [x] §21.6 "required build not executed" yields CI failure.
 
 ## Verification
 
@@ -78,3 +78,33 @@ python -I -m pytest tests/ci/test_evaluate_quality_gates.py
 - **Allowed paths:** evaluator, tests, `ci.yml` job, `quality-gates.yml` + schema, `docs/governance/quality-model.md`, `docs/INDEX.md` line, this feature file, backlog status.
 - **Requires approval:** none.
 - **Pitfalls:** Jobs skipped by path filters appear as "skipped" and also satisfy GitHub required checks; that is exactly why this aggregator job is the required check.
+
+## Implementation Notes
+
+- Architecture (ADR-0003, user decision): `quality.yml`, `security.yml` and `pr-validation.yml`
+  became reusable workflows called from `ci.yml`, so all gate jobs run in one workflow run.
+  `quality-gate` (`needs:` all jobs, `if: always()`, `actions: read`) reads the job list of its
+  run attempt through the Actions API instead of `needs` results, because `needs` only exposes
+  the caller jobs, not the jobs inside a called workflow. Called jobs are named
+  `<caller> / <job>`; the evaluator resolves names from the workflow files.
+- `quality-gates.yml` moved to schema `1.1`: `applies_when` (events, languages, changed paths,
+  ignored paths; R4) and `flaky_tests` (R6). The evaluator accepts only `1.1`;
+  `validate_project.py` still accepts `1.0`. Migration note in `.project/README.md`.
+- "Active profiles" are approximated by `project.yml` `technology.languages` until technology
+  profiles exist (`EPIC-08`); `languages: ["*"]` means any declared language.
+- Decisions taken during implementation: review gates (`documentation`) print a notice and never
+  fail; a failed job without a gate also fails the evaluation; CI also runs on `edited` pull
+  requests so that a corrected description re-runs the validation; unknown changed files (first
+  push) make every path-dependent gate apply; new gates for yaml, markdown and link lint and
+  action pinning were added for jobs that already existed.
+- `pr-validation.yml` now runs only for pull requests into `main` or `develop`, through `ci.yml`.
+- Local checks: `pytest tests/ci` (294 passed), ruff check and format, yamllint `--strict`,
+  actionlint, zizmor offline, markdownlint, validators, gitleaks.
+- GitHub verification (2026-11-10): push run 42832904413 on `develop` passed; called jobs appear
+  as `quality / workflow-lint` etc., and non-applicable gates are listed with their reason.
+  Negative test pull request #5 (closed, not merged) disabled the required `yaml-lint` job:
+  run 42833894099 skipped only `quality / yaml-lint`, and `quality-gate` failed with
+  "job result: skipped". A first attempt with `if: false` also failed `workflow-lint`, because
+  actionlint rejects constant conditions; the final run used a non-constant condition.
+- The rulesets that make `quality-gate` the required check are not configured: this private
+  repository on GitHub Free has no rulesets or branch protection. Bootstrap sets them (`FEAT-027`).

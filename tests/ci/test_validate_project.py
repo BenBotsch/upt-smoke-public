@@ -113,7 +113,88 @@ def test_unknown_schema_version_is_reported(project_copy: Path) -> None:
     problems = messages(project_copy)
     assert len(problems) == 1
     assert "labels.yml:schema_version: unsupported schema_version '9.9'" in problems[0]
-    assert "supported: ['1.0']" in problems[0]
+    assert "supported: ['1.0', '1.1']" in problems[0]
+
+
+def test_labels_schema_1_0_is_still_accepted(project_copy: Path) -> None:
+    def downgrade(data: dict) -> None:
+        data["schema_version"] = "1.0"
+        for entry in data["labels"]:
+            entry.pop("aliases", None)
+
+    edit(project_copy, "labels", downgrade)
+    assert messages(project_copy) == []
+
+
+def test_aliases_are_rejected_by_labels_schema_1_0(project_copy: Path) -> None:
+    edit(project_copy, "labels", lambda d: d.update(schema_version="1.0"))
+    assert any("aliases" in problem for problem in messages(project_copy))
+
+
+def test_bootstrap_schema_1_0_is_still_accepted(project_copy: Path) -> None:
+    def downgrade(data: dict) -> None:
+        data["schema_version"] = "1.0"
+        del data["repository_settings"]
+        del data["protection"]
+
+    edit(project_copy, "bootstrap", downgrade)
+    assert messages(project_copy) == []
+
+
+def test_bootstrap_schema_1_1_is_still_accepted(project_copy: Path) -> None:
+    def downgrade(data: dict) -> None:
+        data["schema_version"] = "1.1"
+        del data["protection"]
+
+    edit(project_copy, "bootstrap", downgrade)
+    assert messages(project_copy) == []
+
+
+def test_protection_is_required_by_bootstrap_schema_1_2(project_copy: Path) -> None:
+    edit(project_copy, "bootstrap", lambda d: d.pop("protection"))
+    assert_single_problem(
+        project_copy, "bootstrap.yml", "(root)", "'protection' is a required property"
+    )
+
+
+def test_protection_mode_must_be_solo_or_team(project_copy: Path) -> None:
+    edit(project_copy, "bootstrap", lambda d: d["protection"].update(mode="none"))
+    assert any("protection.mode" in problem for problem in messages(project_copy))
+
+
+def test_repository_settings_are_required_by_bootstrap_schema_1_1(
+    project_copy: Path,
+) -> None:
+    edit(project_copy, "bootstrap", lambda d: d.pop("repository_settings"))
+    assert_single_problem(
+        project_copy,
+        "bootstrap.yml",
+        "(root)",
+        "'repository_settings' is a required property",
+    )
+
+
+def test_selected_actions_require_an_allow_list(project_copy: Path) -> None:
+    edit(
+        project_copy,
+        "bootstrap",
+        lambda d: d["repository_settings"]["actions"].pop("patterns_allowed"),
+    )
+    assert any("patterns_allowed" in problem for problem in messages(project_copy))
+
+
+def test_allow_list_is_rejected_unless_actions_are_selected(project_copy: Path) -> None:
+    edit(
+        project_copy,
+        "bootstrap",
+        lambda d: d["repository_settings"]["actions"].update(allowed_actions="all"),
+    )
+    problems = messages(project_copy)
+    assert len(problems) == 3
+    assert all(
+        "repository_settings.actions: False schema does not allow" in problem
+        for problem in problems
+    )
 
 
 def test_numeric_schema_version_is_reported(project_copy: Path) -> None:
@@ -239,13 +320,13 @@ def test_missing_required_field_is_reported(project_copy: Path) -> None:
         ),
         (
             "bootstrap",
-            lambda d: d["bootstrap"]["template_only_paths"].append("../outside"),
-            "bootstrap.template_only_paths.1",
+            lambda d: d["bootstrap"]["template_only_paths"].insert(0, "../outside"),
+            "bootstrap.template_only_paths.0",
         ),
         (
             "bootstrap",
-            lambda d: d["bootstrap"]["template_only_paths"].append("/absolute"),
-            "bootstrap.template_only_paths.1",
+            lambda d: d["bootstrap"]["template_only_paths"].insert(0, "/absolute"),
+            "bootstrap.template_only_paths.0",
         ),
     ],
 )
@@ -426,3 +507,92 @@ def test_cross_file_checks_skip_files_with_schema_errors(project_copy: Path) -> 
     assert [(p.file.name, p.path) for p in problems] == [
         ("labels.yml", "labels.0.color")
     ]
+
+
+def write_workflow(project_dir: Path, *uses: str) -> None:
+    workflows = project_dir.parent / ".github" / "workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    steps = "".join(f"      - uses: {ref}\n" for ref in uses)
+    (workflows / "ci.yml").write_text(
+        f"on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n{steps}",
+        encoding="utf-8",
+    )
+
+
+SHA = "a" * 40
+
+
+def test_template_workflows_are_covered_by_the_actions_allow_list() -> None:
+    problems = validate_project.check_allowed_actions(
+        yaml.safe_load((PROJECT_DIR / "bootstrap.yml").read_text(encoding="utf-8"))[
+            "repository_settings"
+        ]["actions"],
+        ROOT,
+        PROJECT_DIR / "bootstrap.yml",
+    )
+
+    assert problems == []
+
+
+def test_action_missing_from_the_allow_list_is_reported(project_copy: Path) -> None:
+    write_workflow(
+        project_copy,
+        f"actions/checkout@{SHA} # v7",
+        "./.github/actions/setup",
+        f"astral-sh/setup-uv@{SHA} # v6",
+    )
+
+    assert_single_problem(
+        project_copy,
+        "bootstrap.yml",
+        "repository_settings.actions",
+        f".github/workflows/ci.yml:8 uses 'astral-sh/setup-uv@{SHA}', which allowed_actions "
+        "'selected' blocks; add a matching entry to patterns_allowed",
+    )
+
+
+@pytest.mark.parametrize(
+    ("ref", "actions", "allowed"),
+    [
+        ("./local", {"allowed_actions": "local_only"}, True),
+        ("docker://alpine@sha256:" + "0" * 64, {"allowed_actions": "local_only"}, True),
+        ("owner/repo@v1", {"allowed_actions": "all"}, True),
+        ("actions/checkout@v7", {"allowed_actions": "local_only"}, False),
+        ("github/codeql-action/init@v4", "selected", True),
+        ("owner/repo/sub/path@v1", "selected", True),
+        ("owner/other@v1", "selected", True),
+        ("owner/repo@v2", {"patterns": ["owner/repo@v1"]}, False),
+        ("someone/action@v1", "selected", False),
+        ("actions/checkout@v7", {"github_owned_allowed": False}, False),
+    ],
+)
+def test_action_is_allowed_follows_the_github_policy(
+    ref: str, actions: dict[str, Any] | str, allowed: bool
+) -> None:
+    settings: dict[str, Any] = {
+        "allowed_actions": "selected",
+        "github_owned_allowed": True,
+        "verified_allowed": True,
+        "patterns_allowed": ["owner/repo@*", "owner/*"],
+    }
+    if isinstance(actions, dict):
+        if "patterns" in actions:
+            settings["patterns_allowed"] = actions.pop("patterns")
+        settings.update(actions)
+
+    assert validate_project.action_is_allowed(ref, settings) is allowed
+
+
+def test_bootstrap_1_0_skips_the_allow_list_check(project_copy: Path) -> None:
+    bootstrap = yaml.safe_load(
+        (project_copy / "bootstrap.yml").read_text(encoding="utf-8")
+    )
+    del bootstrap["repository_settings"]
+    del bootstrap["protection"]
+    bootstrap["schema_version"] = "1.0"
+    (project_copy / "bootstrap.yml").write_text(
+        yaml.safe_dump(bootstrap), encoding="utf-8"
+    )
+    write_workflow(project_copy, f"someone/action@{SHA} # v1")
+
+    assert messages(project_copy) == []

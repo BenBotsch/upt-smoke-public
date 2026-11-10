@@ -1,6 +1,6 @@
 # What bootstrap provisions when a project is created or updated from the template.
 # Project convention, not a native GitHub file: only the bootstrap tool reads it.
-schema_version: "1.0"
+schema_version: "1.2"
 bootstrap:
   create_develop_branch: true
   synchronize_labels: true
@@ -23,6 +23,7 @@ bootstrap:
   # repository validation fails if one exists while project.is_template is false.
   template_only_paths:
     - "template-dev/"
+    - "tools/engineering-bootstrap/"
 
   optional_profiles:
     - python
@@ -31,3 +32,44 @@ bootstrap:
     - flutter
     - docker
     - hybrid
+
+# GitHub settings applied by "project-bootstrap configure-repo" (spec section 14.1). Default and
+# development branch and the description come from project.yml, the allowed merge methods from
+# pull_requests.merge_strategy in workflow.yml. Plan-dependent features are reported as skipped.
+repository_settings:
+  has_wiki: false
+  delete_branch_on_merge: true
+  # Optional: replaces the repository topics. Omit it to leave the topics unchanged.
+  # topics: ["python", "cli"]
+  actions:
+    # Local and GitHub-owned actions plus the listed ones. A workflow that uses another action
+    # fails until it is added here and configure-repo runs again; validate_project.py reports
+    # such an action.
+    allowed_actions: "selected"
+    github_owned_allowed: true
+    verified_allowed: false
+    patterns_allowed:
+      - "DavidAnson/markdownlint-cli2-action@*"
+      - "lycheeverse/lychee-action@*"
+    default_workflow_permissions: "read"
+    can_approve_pull_request_reviews: false
+  # Applied only when configure_dependabot or configure_security above is true.
+  security:
+    dependabot_alerts: true
+    dependabot_security_updates: true
+    secret_scanning: true
+    secret_scanning_push_protection: true
+    private_vulnerability_reporting: true
+
+# Rulesets applied by "project-bootstrap apply-rulesets" (spec sections 8.7 and 14.2) to the
+# default and development branch of project.yml: no deletion, no force push, changes only through
+# pull requests with resolved conversations, merge methods from workflow.yml. No bypass actors.
+# See docs/governance/branch-protection.md for what each GitHub plan enforces.
+protection:
+  # solo: no approval required, because authors cannot approve their own pull requests.
+  # team: one approval, code owner review, approvals dismissed on new pushes.
+  mode: "solo"
+  # Required only after the check has reported once on the branch; until then it is skipped.
+  required_status_checks: ["quality-gate"]
+  # Release tags that cannot be moved or deleted.
+  release_tag_pattern: "v*"
